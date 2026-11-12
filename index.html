@@ -111,7 +111,7 @@
       </div>
       <label class="f"><span>Company</span><input type="text" name="company" autocapitalize="words"></label>
       <div class="row">
-        <label class="f"><span>Email <i>*</i></span><input type="email" name="email" data-req inputmode="email" autocapitalize="off"></label>
+        <label class="f"><span>Email</span><input type="email" name="email" inputmode="email" autocapitalize="off"></label>
         <label class="f"><span>Phone / WhatsApp</span><input type="tel" name="phone" inputmode="tel"></label>
       </div>
       <div class="row">
@@ -127,16 +127,11 @@
       <div class="chips" data-group="businessType" data-single>
         <button type="button" class="chip">Snack manufacturer</button>
         <button type="button" class="chip">Noodle maker</button>
+        <button type="button" class="chip">Plant-based meat</button>
         <button type="button" class="chip">QSR</button>
         <button type="button" class="chip">HoReCa</button>
         <button type="button" class="chip">Distributor</button>
         <button type="button" class="chip">Other</button>
-      </div>
-      <p class="q">Company size / volume</p>
-      <div class="chips" data-group="companySize" data-single>
-        <button type="button" class="chip">Small</button>
-        <button type="button" class="chip">Mid</button>
-        <button type="button" class="chip">Large</button>
       </div>
     </section>
 
@@ -150,6 +145,7 @@
         <button type="button" class="chip">Aftermeats</button>
         <button type="button" class="chip">Roasted onion / garlic powders</button>
         <button type="button" class="chip">Custom flavour development</button>
+        <button type="button" class="chip">Other</button>
       </div>
       <p class="q">Application</p>
       <div class="chips" data-group="application">
@@ -185,8 +181,8 @@
         <button type="button" class="chip">Schedule meeting</button>
         <button type="button" class="chip">Send catalogue</button>
       </div>
-      <label class="toggle"><input type="checkbox" name="sampleRequested" id="sampleToggle"> Sample requested</label>
-      <label class="f" id="sampleWrap" hidden><span>Sample details</span><input type="text" name="sampleDetails" placeholder="Flavour, qty, delivery address…"></label>
+      <label class="toggle"><input type="checkbox" name="sampleTaken" id="sampleToggle"> Sample taken</label>
+      <label class="f"><span>Comment (optional)</span><textarea name="sampleComment" placeholder="Which samples, quantity, any follow-up…"></textarea></label>
     </section>
 
     <p class="muted small" style="text-align:center">Saved on this phone first, then synced to Google Sheets automatically.</p>
@@ -246,7 +242,7 @@ function groupVal(name){
   const v = [...g.querySelectorAll('.chip[aria-pressed=true]')].map(x => x.dataset.v || x.textContent.trim());
   return g.hasAttribute('data-single') ? (v[0] || '') : v;
 }
-$('#sampleToggle').addEventListener('change', e => { $('#sampleWrap').hidden = !e.target.checked; });
+
 
 const EVENT = (window.__EVENT__ || new URLSearchParams(location.search).get('event') || '').trim();
 let CONFIG = LS.get('np_config', { exhibition: '' });
@@ -434,22 +430,23 @@ function showLines(text){
 
 function validate(){
   let ok = true, first = null;
-  form.querySelectorAll('[data-req]').forEach(i => {
-    const bad = !i.value.trim() || (i.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(i.value.trim()));
+  form.querySelectorAll('[data-req], input[type=email]').forEach(i => {
+    const v = i.value.trim();
+    const bad = (i.hasAttribute('data-req') && !v) || (i.type === 'email' && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
     i.classList.toggle('invalid', bad); if (bad){ ok = false; first ||= i; }
   });
   if (first){ first.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Fill the highlighted fields'); }
   return ok;
 }
 function resetForm(){
-  form.reset(); $('#sampleWrap').hidden = true;
+  form.reset();
   $$('[data-group] .chip').forEach(b => b.setAttribute('aria-pressed', 'false'));
   form.querySelectorAll('.invalid,.target').forEach(i => i.classList.remove('invalid', 'target'));
   cardPhoto = ''; rawCardText = ''; target = null;
   $('#thumb').style.display = 'none'; $('#ocrStatus').style.display = 'none'; $('#lines').style.display = 'none';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-form.querySelectorAll('[data-req]').forEach(i => i.addEventListener('input', () => i.classList.remove('invalid')));
+form.querySelectorAll('[data-req], input[type=email]').forEach(i => i.addEventListener('input', () => i.classList.remove('invalid')));
 
 $('#submitBtn').onclick = async () => {
   if (!ME.name){ openWho(true); return; }
@@ -460,10 +457,10 @@ $('#submitBtn').onclick = async () => {
     exhibition: CONFIG.exhibition, salesperson: ME.name, salespersonEmail: ME.email,
     name: f.name.value.trim(), company: f.company.value.trim(), title: f.title.value.trim(),
     email: f.email.value.trim().toLowerCase(), phone: f.phone.value.trim(), country: f.country.value.trim(), website: f.website.value.trim(),
-    businessType: groupVal('businessType'), companySize: groupVal('companySize'),
+    businessType: groupVal('businessType'),
     productInterest: groupVal('productInterest'), application: groupVal('application'), flavourDirection: groupVal('flavourDirection'),
     notes: f.notes.value.trim(), temperature: groupVal('temperature'), nextAction: groupVal('nextAction'),
-    sampleRequested: f.sampleRequested.checked, sampleDetails: f.sampleDetails.value.trim(),
+    sampleTaken: f.sampleTaken.checked, sampleComment: f.sampleComment.value.trim(),
     cardPhoto, rawCardText
   };
   $('#submitBtn').disabled = true;
@@ -477,7 +474,7 @@ $('#submitBtn').onclick = async () => {
 $('#clearBtn').onclick = () => { if (confirm('Clear this form?')) resetForm(); };
 
 renderHeader(); updatePill();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 if (!ME.name) openWho(true);
 loadConfig().then(flush);
 </script>
