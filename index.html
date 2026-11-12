@@ -92,7 +92,7 @@
     <section>
       <h2>Name card</h2>
       <div class="scan">
-        <label class="scanbtn" for="cardInput">📷 Scan name card</label>
+        <label class="scanbtn" for="cardInput">📷 Take name card photo</label>
         <img id="thumb" class="thumb" alt="Card preview">
       </div>
       <input id="cardInput" type="file" accept="image/*" capture="environment" hidden>
@@ -185,7 +185,7 @@
       <label class="f"><span>Comment (optional)</span><textarea name="sampleComment" placeholder="Which samples, quantity, any follow-up…"></textarea></label>
     </section>
 
-    <p class="muted small" style="text-align:center">Saved on this phone first, then synced to Google Sheets automatically.</p>
+    <p class="muted small" style="text-align:center">Leads go straight to the shared sheet. No signal? Kept safe and sent automatically.</p>
   </form>
 </main>
 
@@ -340,11 +340,10 @@ function loadScript(src){ return new Promise((res, rej) => { const s = document.
 $('#cardInput').addEventListener('change', async e => {
   const file = e.target.files[0]; if (!file) return;
   const img = await loadImage(file);
-  cardPhoto = resize(img, 1100, 0.72).dataUrl;
+  cardPhoto = resize(img, 1600, 0.8).dataUrl;
   $('#thumb').src = cardPhoto; $('#thumb').style.display = 'block';
-  const ocrImg = resize(img, 1800, 0.92).canvas;
   e.target.value = '';
-  runOCR(ocrImg);
+  toast('Card photo added');
 });
 
 async function runOCR(canvas){
