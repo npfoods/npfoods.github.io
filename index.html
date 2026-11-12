@@ -49,6 +49,11 @@
   .temp .chip[data-v=Hot][aria-pressed=true]{background:var(--accent);border-color:var(--accent)}
   .scan{display:flex;gap:12px;align-items:center}
   .scanbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;border:1.5px dashed var(--ink);border-radius:var(--r);padding:16px;background:var(--bg);font:inherit;font-weight:600;color:var(--ink);cursor:pointer}
+  .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .thumbs .t{position:relative}
+  .thumbs img{width:76px;height:52px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
+  .thumbs button{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;border:0;background:var(--ink);color:#fff;font-size:13px;line-height:22px;padding:0;cursor:pointer}
+  .thumbcount{font-size:12px;color:var(--muted);margin-top:6px}
   .thumb{width:84px;height:54px;border-radius:6px;object-fit:cover;border:1px solid var(--line);display:none}
   .ocr-status{font-size:13px;color:var(--muted);margin-top:10px;display:none}
   .bar{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
@@ -92,10 +97,11 @@
     <section>
       <h2>Name card</h2>
       <div class="scan">
-        <label class="scanbtn" for="cardInput">📷 Take name card photo</label>
-        <img id="thumb" class="thumb" alt="Card preview">
-      </div>
-      <input id="cardInput" type="file" accept="image/*" capture="environment" hidden>
+        <label class="scanbtn" for="cardInput">📷 Add photos (up to 5)</label>
+        </div>
+      <div id="thumbs" class="thumbs"></div>
+      <div id="thumbCount" class="thumbcount">Front, back of name card or other photos. Up to 5.</div>
+      <input id="cardInput" type="file" accept="image/*" multiple hidden>
       <div class="ocr-status" id="ocrStatus"><span id="ocrMsg">Reading card…</span><div class="bar"><div id="ocrBar"></div></div></div>
       <div class="lines" id="lines">
         <div class="hint">Wrong field? Tap a field below, then tap the correct line here.</div>
@@ -322,7 +328,7 @@ window.addEventListener('online', flush);
 window.addEventListener('offline', updatePill);
 setInterval(flush, 30000);
 
-let cardPhoto = '', rawCardText = '', target = null, ocrWorker = null;
+let cardPhotos = [], rawCardText = '', target = null, ocrWorker = null;
 
 form.querySelectorAll('input[type=text],input[type=email],input[type=tel],input[type=url]').forEach(i => {
   i.addEventListener('focus', () => { form.querySelectorAll('input.target').forEach(x => x.classList.remove('target')); target = i; if ($('#lines').style.display === 'block') i.classList.add('target'); });
@@ -337,13 +343,30 @@ function resize(img, max, q){
 }
 function loadScript(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
 
+const MAX_PHOTOS = 5;
+function renderThumbs(){
+  const box = $('#thumbs');
+  box.innerHTML = '';
+  cardPhotos.forEach((p, i) => {
+    const d = document.createElement('div'); d.className = 't';
+    d.innerHTML = '<img alt="Photo ' + (i + 1) + '"><button type="button" aria-label="Remove photo">×</button>';
+    d.querySelector('img').src = p;
+    d.querySelector('button').onclick = () => { cardPhotos.splice(i, 1); renderThumbs(); };
+    box.appendChild(d);
+  });
+  $('#thumbCount').textContent = cardPhotos.length ? cardPhotos.length + ' of ' + MAX_PHOTOS + ' photos added' : 'Front, back of name card or other photos. Up to 5.';
+  $('.scanbtn').style.display = cardPhotos.length >= MAX_PHOTOS ? 'none' : '';
+}
 $('#cardInput').addEventListener('change', async e => {
-  const file = e.target.files[0]; if (!file) return;
-  const img = await loadImage(file);
-  cardPhoto = resize(img, 1600, 0.8).dataUrl;
-  $('#thumb').src = cardPhoto; $('#thumb').style.display = 'block';
+  const files = [...e.target.files];
   e.target.value = '';
-  toast('Card photo added');
+  let skipped = 0;
+  for (const file of files){
+    if (cardPhotos.length >= MAX_PHOTOS){ skipped++; continue; }
+    try { const img = await loadImage(file); cardPhotos.push(resize(img, 1400, 0.75).dataUrl); } catch(err){ console.error(err); }
+  }
+  renderThumbs();
+  toast(skipped ? 'Max 5 photos. ' + skipped + ' not added.' : cardPhotos.length + ' photo(s) added');
 });
 
 async function runOCR(canvas){
@@ -441,8 +464,8 @@ function resetForm(){
   form.reset();
   $$('[data-group] .chip').forEach(b => b.setAttribute('aria-pressed', 'false'));
   form.querySelectorAll('.invalid,.target').forEach(i => i.classList.remove('invalid', 'target'));
-  cardPhoto = ''; rawCardText = ''; target = null;
-  $('#thumb').style.display = 'none'; $('#ocrStatus').style.display = 'none'; $('#lines').style.display = 'none';
+  cardPhotos = []; renderThumbs(); rawCardText = ''; target = null;
+  $('#ocrStatus').style.display = 'none'; $('#lines').style.display = 'none';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 form.querySelectorAll('[data-req], input[type=email]').forEach(i => i.addEventListener('input', () => i.classList.remove('invalid')));
@@ -460,7 +483,7 @@ $('#submitBtn').onclick = async () => {
     productInterest: groupVal('productInterest'), application: groupVal('application'), flavourDirection: groupVal('flavourDirection'),
     notes: f.notes.value.trim(), temperature: groupVal('temperature'), nextAction: groupVal('nextAction'),
     sampleTaken: f.sampleTaken.checked, sampleComment: f.sampleComment.value.trim(),
-    cardPhoto, rawCardText
+    cardPhotos, rawCardText
   };
   $('#submitBtn').disabled = true;
   try {
